@@ -9,7 +9,6 @@
       "permissions": [],
       "versionCode": 2
     },
-    "androidCompileSdkVersion": 36,
     "icon": "./assets/icon.png",
     "name": "Deep Sea Bounty",
     "orientation": "portrait",
