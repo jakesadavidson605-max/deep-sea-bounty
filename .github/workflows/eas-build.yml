@@ -31,6 +31,33 @@ jobs:
         run: eas build --platform android --profile production --non-interactive --wait --json > build.json
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+      - name: Dump EAS build failure details
+        if: always()
+        run: |
+          echo "=== build.json (first 4000 chars) ==="
+          head -c 4000 build.json 2>/dev/null; echo
+          echo "=== EAS error + logs via GraphQL ==="
+          node -e "
+          const https = require('https');
+          const query = '{ app { byId(appId: \"4101d11e-7a69-4115-8c1e-62e07c56787b\") { builds(offset: 0, limit: 2) { id status error { buildPhase errorCode message } logFileUrls } } } }';
+          const req = https.request('https://api.expo.dev/graphql', { method: 'POST', headers: { 'Authorization': 'Bearer ' + process.env.EXPO_TOKEN, 'Content-Type': 'application/json' } }, res => {
+            let d=''; res.on('data', c=>d+=c); res.on('end', ()=>{
+              try {
+                const builds = JSON.parse(d).data.app.byId.builds;
+                const b = builds[0];
+                console.log('latest build:', b.id, b.status);
+                console.log('error:', JSON.stringify(b.error));
+                const url = (b.logFileUrls||[])[0];
+                if (url) { console.log('fetching log file...'); https.get(url, r=>{ let t=''; r.on('data',c=>t+=c); r.on('end',()=>{ const lines=t.split('\n'); console.log('--- last 60 log lines ---'); console.log(lines.slice(-60).join('\n')); }); }); }
+                else console.log('no logFileUrls in response');
+              } catch(e){ console.log('parse failed, raw response head:', d.slice(0,1500)); }
+            });
+          });
+          req.on('error', e=>console.log('graphql request error:', e.message));
+          req.end(JSON.stringify({query}));
+          "
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
       - name: Download AAB artifact
         run: |
           BUILD_URL=$(node -e "const b=JSON.parse(require('fs').readFileSync('build.json','utf8')); const build=Array.isArray(b)?b[0]:b; console.log(build.artifacts.buildUrl)")
