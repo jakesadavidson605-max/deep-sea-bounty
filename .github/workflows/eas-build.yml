@@ -6,13 +6,15 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
       - name: Install eas-cli
         run: npm install -g eas-cli
       - name: Install dependencies
@@ -40,3 +42,9 @@ jobs:
           name: android-aab
           path: app-release.aab
           if-no-files-found: error
+      - name: Publish AAB to GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: aab-build-${{ github.run_number }}
+          name: AAB build ${{ github.run_number }} (SDK 54 / API 36)
+          files: app-release.aab
